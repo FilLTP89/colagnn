@@ -2,15 +2,26 @@ import sys
 import torch
 import numpy as np
 from torch.autograd import Variable
+from parse_h5_traces import ParseSEM3DH5Traces
 
 class DataBasicLoader(object):
     def __init__(self, args):
         self.cuda = args.cuda
-        self.P = args.window # 20
-        self.h = args.horizon # 1
+        self.P = args.window
+        self.h = args.horizon
         self.d = 0
         self.add_his_day = False
-        self.rawdat = np.loadtxt(open("../data/{}.txt".format(args.dataset)), delimiter=',')
+        self.dataorigin = args.dataorigin
+        if "sem3d" in self.dataorigin.lower():
+            options = {"wkd":"../data/traces","fmt":"h5",
+                "nam":["all"],"var":"Veloc","rdr":["x"],
+                "mon":[0],"plt":False}
+            stream = ParseSEM3DH5Traces(**options)
+            self.rawdat = self.rawdat = stream['all'].data['Veloc'].squeeze()
+            # self.rawdat = stream['all'].data['Veloc'].T
+            # self.rawdat = self.rawdat.reshape(-1,self.rawdat.shape[-1])
+        else:
+            self.rawdat = np.loadtxt(open("../data/{}.txt".format(args.dataset)), delimiter=',')
         print('data shape', self.rawdat.shape)
         if args.sim_mat:
             self.load_sim_mat(args)
@@ -21,7 +32,6 @@ class DataBasicLoader(object):
         self.dat = np.zeros(self.rawdat.shape)
         self.n, self.m = self.dat.shape # n_sample, n_group
         print(self.n, self.m)
-
         self.scale = np.ones(self.m)
 
         self._pre_train(int(args.train * self.n), int((args.train + args.val) * self.n), self.n)
@@ -51,13 +61,13 @@ class DataBasicLoader(object):
         print(self.dat.shape)
          
     def _split(self, train, valid, test):
-        self.train = self._batchify(self.train_set, self.h) # torch.Size([179, 20, 47]) torch.Size([179, 47])
+        self.train = self._batchify(self.train_set, self.h)
         self.val = self._batchify(self.valid_set, self.h)
         self.test = self._batchify(self.test_set, self.h)
         if (train == valid):
             self.val = self.test
  
-    def _batchify(self, idx_set, horizon, useraw=False): ###tonights work
+    def _batchify(self, idx_set, horizon, useraw=False):
 
         n = len(idx_set)
         Y = torch.zeros((n, self.m))

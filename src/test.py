@@ -4,7 +4,8 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import division
 from __future__ import print_function
-
+import matplotlib as mpl
+mpl.use('Agg')
 import os, itertools, random, argparse, time, datetime
 import numpy as np
 import random
@@ -69,7 +70,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from dcrnn_model import *
-
+from matplotlib import pyplot as plt
 
 random.seed(args.seed)
 np.random.seed(args.seed)
@@ -120,9 +121,6 @@ else:
 logger.info('model %s', model)
 if args.cuda:
     model.cuda()
-optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print('#params:',pytorch_total_params)
 
 def evaluate(data_loader, data, tag='val'):
     model.eval()
@@ -133,9 +131,16 @@ def evaluate(data_loader, data, tag='val'):
     batch_size = args.batch
     y_pred_mx = []
     y_true_mx = []
+    k=0
     for inputs in data_loader.get_batches(data, batch_size, False):
         X, Y = inputs[0], inputs[1]
         output,_  = model(X)
+        fig, ax = plt.subplots()
+        ax.plot(Y[:,0].detach().cpu().numpy())
+        ax.plot(output[:,0].detach().cpu().numpy())
+        fig.savefig('test_{:>d}.png'.format(k),format="png", bbox_inches='tight')
+        k +=1
+        plt.close()
         loss_train = F.l1_loss(output, Y) # mse_loss
         total_loss += loss_train.item()
         n_samples += (output.size(0) * data_loader.m);
@@ -172,79 +177,10 @@ def evaluate(data_loader, data, tag='val'):
     y_pred_t = y_pred_states
     return float(total_loss / n_samples), mae,std_mae, rmse, rmse_states, pcc, pcc_states, r2, r2_states, var, var_states, peak_mae
 
-def train(data_loader, data):
-    model.train()
-    total_loss = 0.
-    n_samples = 0.
-    batch_size = args.batch
-
-    for inputs in data_loader.get_batches(data, batch_size, True):
-        X, Y = inputs[0], inputs[1]
-        optimizer.zero_grad()
-        output,_  = model(X) 
-        if Y.size(0) == 1:
-            Y = Y.view(-1)
-        loss_train = F.l1_loss(output, Y) # mse_loss
-        total_loss += loss_train.item()
-        loss_train.backward()
-        optimizer.step()
-        n_samples += (output.size(0) * data_loader.m)
-    return float(total_loss / n_samples)
- 
-bad_counter = 0
-best_epoch = 0
-best_val = 1e+20;
-try:
-    print('begin training');
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
-    
-    for epoch in range(1, args.epochs+1):
-        epoch_start_time = time.time()
-        train_loss = train(data_loader, data_loader.train)
-        val_loss, mae,std_mae, rmse, rmse_states, pcc, pcc_states, r2, r2_states, var, var_states, peak_mae = evaluate(data_loader, data_loader.val)
-        print('Epoch {:3d}|time:{:5.2f}s|train_loss {:5.8f}|val_loss {:5.8f}'.format(epoch, (time.time() - epoch_start_time), train_loss, val_loss))
-
-        if args.mylog:
-            writer.add_scalars('data/loss', {'train': train_loss}, epoch )
-            writer.add_scalars('data/loss', {'val': val_loss}, epoch)
-            writer.add_scalars('data/mae', {'val': mae}, epoch)
-            writer.add_scalars('data/rmse', {'val': rmse_states}, epoch)
-            writer.add_scalars('data/rmse_states', {'val': rmse_states}, epoch)
-            writer.add_scalars('data/pcc', {'val': pcc}, epoch)
-            writer.add_scalars('data/pcc_states', {'val': pcc_states}, epoch)
-            writer.add_scalars('data/R2', {'val': r2}, epoch)
-            writer.add_scalars('data/R2_states', {'val': r2_states}, epoch)
-            writer.add_scalars('data/var', {'val': var}, epoch)
-            writer.add_scalars('data/var_states', {'val': var_states}, epoch)
-            writer.add_scalars('data/peak_mae', {'val': peak_mae}, epoch)
-       
-        # Save the model if the validation loss is the best we've seen so far.
-        if val_loss < best_val:
-            best_val = val_loss
-            best_epoch = epoch
-            bad_counter = 0
-            model_path = '%s/%s.pt' % (args.save_dir, log_token)
-            with open(model_path, 'wb') as f:
-                torch.save(model.state_dict(), f)
-            print('Best validation epoch:',epoch, time.ctime());
-            test_loss, mae,std_mae, rmse, rmse_states, pcc, pcc_states, r2, r2_states, var, var_states, peak_mae  = evaluate(data_loader, data_loader.test,tag='test')
-            print('TEST MAE {:5.4f} std {:5.4f} RMSE {:5.4f} RMSEs {:5.4f} PCC {:5.4f} PCCs {:5.4f} R2 {:5.4f} R2s {:5.4f} Var {:5.4f} Vars {:5.4f} Peak {:5.4f}'.format( mae, std_mae, rmse, rmse_states, pcc, pcc_states,r2, r2_states, var, var_states, peak_mae))
-        else:
-            bad_counter += 1
-
-        if bad_counter == args.patience:
-            break
-
-except KeyboardInterrupt:
-    print('-' * 89)
-    print('Exiting from training early, epoch',epoch)
 
 # Load the best saved model.
 model_path = '%s/%s.pt' % (args.save_dir, log_token)
 with open(model_path, 'rb') as f:
     model.load_state_dict(torch.load(f));
 test_loss, mae,std_mae, rmse, rmse_states, pcc, pcc_states, r2, r2_states, var, var_states, peak_mae  = evaluate(data_loader, data_loader.test,tag='test')
-print('Final evaluation')
-print('TEST MAE {:5.4f} std {:5.4f} RMSE {:5.4f} RMSEs {:5.4f} PCC {:5.4f} PCCs {:5.4f} R2 {:5.4f} R2s {:5.4f} Var {:5.4f} Vars {:5.4f} Peak {:5.4f}'.format( mae, std_mae, rmse, rmse_states, pcc, pcc_states,r2, r2_states, var, var_states, peak_mae))
-           
+
