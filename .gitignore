@@ -1,6 +1,7 @@
 data/
 tensorboard/
 sem3d/
+src/*.slurm
 src/out.*
 src/*.txt
 src/tensorboard/
