@@ -1,0 +1,8 @@
+data/
+tensorboard/
+sem3d/
+src/out.*
+src/*.txt
+src/tensorboard/
+src/save/
+src/__pycache__/

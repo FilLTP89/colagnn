@@ -122,5 +122,3 @@ class DataBasicLoader(object):
             data = [model_inputs, Variable(Y)]
             yield data
             start_idx += batch_size
-
-   
