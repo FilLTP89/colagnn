@@ -1,8 +1,18 @@
 import sys
 import torch
 import numpy as np
+import pandas as pd
 from torch.autograd import Variable
 from parse_h5_traces import ParseSEM3DH5Traces
+
+def generate_quarterly_data(data):
+    quarterly_data = -999.0*np.ones((data.shape[0],4*data.shape[1]),dtype=np.float32)
+    ddata = np.diff(data,n=1,axis=1,prepend=data[:,0].reshape(-1,1))
+    quarterly_data[:,0::4] = data
+    quarterly_data[:,1::4] = data+0.25*ddata
+    quarterly_data[:,2::4] = data+0.50*ddata
+    quarterly_data[:,3::4] = data+0.75*ddata
+    return quarterly_data
 
 class DataBasicLoader(object):
     def __init__(self, args):
@@ -20,8 +30,13 @@ class DataBasicLoader(object):
             self.rawdat = self.rawdat = stream['all'].data['Veloc'].squeeze()
             # self.rawdat = stream['all'].data['Veloc'].T
             # self.rawdat = self.rawdat.reshape(-1,self.rawdat.shape[-1])
+        elif "amit" in self.dataorigin.lower():
+            df = pd.read_csv("../data/{}.txt".format(args.dataset),
+                header=1,sep="\t",skiprows=0,index_col=1).iloc[:,1:].astype(np.float32)
+            self.rawdat = generate_quarterly_data(df.astype(np.float32).values).T
         else:
-            self.rawdat = np.loadtxt(open("../data/{}.txt".format(args.dataset)), delimiter=',')
+            self.rawdat = np.loadtxt(open("../data/{}.txt".format(args.dataset)),
+                delimiter=',')
         print('data shape', self.rawdat.shape)
         if args.sim_mat:
             self.load_sim_mat(args)
