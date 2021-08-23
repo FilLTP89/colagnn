@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 """
-	Compute adjacency matrix for SEM3D monitors
+    Compute adjacency matrix for SEM3D monitors
 """
 import argparse
 import numpy
@@ -16,7 +16,7 @@ from pysal.lib import weights
 import pyvista
 
 
-def ComputeAdjacencyMatrix(sf="./stations.txt",af="./adjacency.txt"):
+def ComputeSEM3DAdjacencyMatrix(sf="./stations.txt",af="./adjacency.txt",**kwargs):
     coords = numpy.loadtxt(sf,delimiter=',').T
     xl,yl,zl = coords
     xl,yl,zl = map(numpy.unique,(xl,yl,zl))
@@ -47,9 +47,17 @@ def ComputeAdjacencyMatrix(sf="./stations.txt",af="./adjacency.txt"):
     ad.to_csv(path_or_buf=af,sep=',',header=False,index=False)
     return
 
+
+def ComputeAmitAdjacencyMatrix(sf="./amit-raw-adj.txt",af="./amit-adj.txt",**kwargs):
+    # Load adjacency
+    ad = pandas.read_csv(sf,sep="\t",header=1,skiprows=0,index_col=1).iloc[:,1:].astype(numpy.float32)
+    ad.to_csv(path_or_buf=af,sep=',',header=False,index=False)
+    return
+
 def ParseOptions():
     OptionParser = argparse.ArgumentParser(prefix_chars='@')
-    OptionParser.add_argument('@s','@@sf',type=str,default='../sem3d/stations.txt',help='Station file')
+    OptionParser.add_argument('@t','@@tag',type=str,default='amit',help='Station file')
+    OptionParser.add_argument('@s','@@sf',type=str,default='../data/sem3dtraces/stations.txt',help='Station file')
     OptionParser.add_argument('@a','@@af',type=str,default='../data/sem3d-adj.txt',help='Adjacency matrix file')
     options = OptionParser.parse_args().__dict__
     return options
@@ -57,4 +65,7 @@ def ParseOptions():
 if __name__=='__main__':
     
     options = ParseOptions()
-    ComputeAdjacencyMatrix(**options)
+    if "amit" in options['tag']:
+        ComputeAmitAdjacencyMatrix(**options)
+    elif "sem3d" in options['tag']:
+        ComputeSEM3DAdjacencyMatrix(**options)
