@@ -147,9 +147,11 @@ def evaluate(data_loader, data, tag='val'):
         # ax.set_aspect('equal')
         # import pdb
         # pdb.set_trace()
-        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),Y[:,0].detach().cpu().numpy(),label=r'$y(t)$')
-        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),output[:,0].detach().cpu().numpy(),
-            label=r'$\hat{y}(t)$')
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),Y[:,1:-1].detach().cpu().numpy(),color='gray',linewidth=0.5)
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),Y[:,-1].detach().cpu().numpy(),color='gray',linewidth=0.5,label=r'$y(t)$')
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),Y[:,5].detach().cpu().numpy(),color='black',linewidth=3,label=r'$y_0(t)$')
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),output[:,5].detach().cpu().numpy(),
+            label=r'$\hat{y}_0(t)$',color='blue',linewidth=3)
         
         cm = plt.cm.get_cmap('RdYlBu')
         ax.set_xlim([0.0,Y.shape[0]+1])
