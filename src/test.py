@@ -71,7 +71,15 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from dcrnn_model import *
 from matplotlib import pyplot as plt
-
+from matplotlib import rc
+# rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
+## for Palatino and other serif fonts use:
+rc('font',**{'family':'serif','serif':['Palatino']})
+rc('text', usetex=True)
+plt.rcParams.update({
+    'text.usetex': True,
+    'text.latex.preamble': r'\usepackage{amsfonts}'
+})
 random.seed(args.seed)
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
@@ -136,8 +144,20 @@ def evaluate(data_loader, data, tag='val'):
         X, Y = inputs[0], inputs[1]
         output,_  = model(X)
         fig, ax = plt.subplots()
-        ax.plot(Y[:,0].detach().cpu().numpy())
-        ax.plot(output[:,0].detach().cpu().numpy())
+        # ax.set_aspect('equal')
+        # import pdb
+        # pdb.set_trace()
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),Y[:,0].detach().cpu().numpy(),label=r'$y(t)$')
+        ax.plot(np.linspace(1,Y.shape[0],Y.shape[0]),output[:,0].detach().cpu().numpy(),
+            label=r'$\hat{y}(t)$')
+        
+        cm = plt.cm.get_cmap('RdYlBu')
+        ax.set_xlim([0.0,Y.shape[0]+1])
+        ax.set_xticks(np.linspace(0,Y.shape[0]+1,Y.shape[0]+2))
+        ax.set_xlabel(r'$t$ [s]')
+        ax.set_ylabel(r'$y$ [1]')
+        ax.set_title(r'Window size {:>d} - Horizon {:>d}'.format(args.window,args.horizon))
+        plt.legend(frameon=False)
         fig.savefig('test_{:>d}.png'.format(k),format="png", bbox_inches='tight')
         k +=1
         plt.close()
